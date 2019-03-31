@@ -1,0 +1,42 @@
+//クロスプロジェクト設定（サブプロジェクトに共通の設定を行う）
+
+//ビルドスクリプトではproject()というメソッドを使用でき、引数にプロジェクトへのパスを渡せばProjectオブジェクトを取得できます
+//bluewhaleサブプロジェクトを取得して、そのプロジェクト名を表示する例。
+
+//I'm water
+//I'm bluewhale
+
+Closure cl = { task -> println "I'm $task.project.name" }
+//カレントプロジェクトのタスクを定義。
+task('hello1').doLast(cl)
+//bluewhaleプロジェクトのタスクを定義。
+project(':bluewhale') {
+    task('hello1').doLast(cl)
+}
+
+//すべてのサブプロジェクトを取得して、そのプロジェクト名を表示する例。
+//プロジェクトとすべてのサブプロジェクトが取得される。
+
+// > Task :hello2
+// I'm water
+// > Task :bluewhale:hello2
+// I'm bluewhale
+// > Task :krill:hello2
+// I'm krill
+
+//プロジェクトAPIはallprojectsというプロパティを提供しており、そのプロパティには現在のプロジェクトと、そのサブプロジェクトのリストが格納されています。
+//allprojectsをクロージャとともに呼び出せば、クロージャの実行がallprojectsに格納されたすべてのプロジェクトに委譲されます。
+//もちろんallprojectsをeachでループすることもできますが、記述が冗長になってしまいます。
+//他のビルドシステムでは、プロジェクト間の共通設定を行う方法として主に継承を使用します。後ほど紹介するように、Gradleでも同様にプロジェクト間の継承を使用することが出来ますが、
+//Gradleではもっと使いやすい共通設定の定義方法としてこの設定のインジェクションを使用します。設定の継承に比べて、設定を注入する方が柔軟性のある強力な方法だと考えているからです。
+
+//Configures this project and each of its sub-projects.
+//This method executes the given closure against this project and its sub-projects. 
+//The target Project is passed to the closure as the closure's delegate.
+allprojects {
+  task hello2 {
+    doLast { task->
+      println "I'm $task.project.name"
+    }
+  }
+}

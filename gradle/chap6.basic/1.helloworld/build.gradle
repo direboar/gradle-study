@@ -1,0 +1,28 @@
+//taskの定義。antでいうところのtarget。
+//gradle hellodで実行できる。
+task hello{
+  doLast {
+    println 'Hello world!'
+  }
+}
+
+//タスクのショートカット定義　Gradle4.x以降廃止。
+//うまくいかないので一旦放置
+//task goodby << {
+//    println 'Hello world!'
+//}
+
+//groovyでロジックが書ける。
+task upper {
+  doLast {
+    String someString = 'mY_nAmE'
+    println "Original: " + someString
+    println "Upper case: " + someString.toUpperCase()
+  }
+}
+
+task count {
+  doLast {
+    4.times { print "$it ,"}
+  }
+}

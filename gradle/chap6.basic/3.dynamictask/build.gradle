@@ -1,0 +1,41 @@
+//taskを動的に作成する。 task0～task3が生成される。
+4.times { counter ->
+  task "task$counter " {
+    doLast {
+      println "I'm task number $counter"
+    }
+  }
+}
+
+//タスクの依存関係をあとから操作する =>うまく動かない・・・
+//task1は、task2,task3に依存
+//task0.dependsOn task2, task3
+
+//APIからタスクにアクセスする
+//最初に定義したタスクに、あとからdoFirst,doLastなどを追加する。
+//定義したタスクには、プロパティとしてアクセスできる。
+task hello {
+  println "Hello,Earth"
+}
+
+hello.doFirst {
+  println "Hello Venus"
+}
+
+hello.doLast {
+  println "Hello Mars"
+}
+
+//タスクにプロパティを追加する
+task myTask {
+  //プロパティの定義
+  ext.myProperty = "myValue"
+}
+
+task printTaskProperties {
+  doLast {
+    println myTask.myProperty
+  }
+}
+
+//antを呼べる。割愛。

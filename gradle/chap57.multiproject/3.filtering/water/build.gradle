@@ -1,0 +1,40 @@
+//すべてのプロジェクトに対して適用するというDSL
+allprojects { 
+ task hello() { 
+   //親プロジェクトとサブプロジェクトごとに、繰返し以下のタスクが呼ばれる、
+   doLast { task -> //Task型が渡される。https://docs.gradle.org/current/dsl/org.gradle.api.Task.html#N18F33
+     println task.getClass().getName()
+     println task.name
+     //Task.projectでこのコンテキストのプロジェクトを参照できる。
+     println task.project.name
+     println "This is Project : $task.project.name" //文字列中で引数参照する場合は$をつける。
+   }
+ }
+}
+
+//サブプロジェクト「tropicalFish」以外にhelloの定義を足す。
+//・configure()は引数にリストを取るメソッドで、そのリストに格納されたプロジェクトに設定を適用します。
+//・サブプロジェクトのリスト取得は以下の関数を使っている。
+//  https://docs.gradle.org/current/dsl/org.gradle.api.Project.html#org.gradle.api.Project:subprojects(org.gradle.api.Action)
+configure(subprojects.findAll {it.name != 'tropicalFish'}) {
+    hello {
+        doLast {
+            println '- I love to spend time in the arctic waters by subprojectname'
+        }
+    }
+}
+
+//拡張プロパティの有無で、サブプロジェクトにタスクの定義追加を行う。トリッキーになるのであまりやりたくない。
+subprojects {
+  //afterEvaluateに引き渡されたクロージャは、そのプロジェクトのビルドスクリプトが評価された後に実行されます。
+  //サブプロジェクトのarcticプロパティは、それぞれのプロジェクトのビルドスクリプト内でセットされているので、この方法でarcticプロパティにアクセスする必要があるのです。
+  afterEvaluate { Project project ->
+    if (project.arctic) {
+      hello.configure {
+        doLast {
+          println '- I love to spend time in the arctic waters  by property'
+        }
+      }
+    }
+  }
+}

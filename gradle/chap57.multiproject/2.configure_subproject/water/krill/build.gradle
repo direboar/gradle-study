@@ -1,0 +1,14 @@
+
+//whareにのみ定義されたタスク。この状態で親プロジェクトごと呼べます。
+task onlyWhare {
+  doLast { task ->
+     println "build.gradle in subproject $task.project.name is called"
+  }
+}
+
+//親プロジェクトで定義されたタスクに追加するので、task宣言がない。
+hello {
+  doLast { task ->
+     println "build.gradle in subproject $task.project.name is called"
+  }
+}

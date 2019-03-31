@@ -1,0 +1,886 @@
+https://docs.gradle.org/current/userguide/multi_project_builds.html
+
+<pre>マルチプロジェクトビルドのオーサリング
+内容
+クロスプロジェクト構成
+サブプロジェクト構成
+マルチプロジェクトビルドの実行ルール
+絶対パスでタスクを実行する
+プロジェクトとタスクのパス
+依存関係 - どの依存関係ですか？
+プロジェクトライブラリの依存関係
+別のプロジェクトによって生成されたタスク出力に応じて
+並列プロジェクト実行
+分離プロジェクト
+マルチプロジェクト構築とテスト
+マルチプロジェクトとbuildSrc
+マルチプロジェクトビルドを強力にサポートすることは、Gradle独自のセールスポイントの1つです。このトピックはまた、最も知的に挑戦的です。
+
+マルチプロジェクトビルドイングラドルは、1つのルートプロジェクトと、サブプロジェクトを持つことがある1つ以上のサブプロジェクトで構成されます。
+
+クロスプロジェクト構成
+各サブプロジェクトは他のサブプロジェクトから完全に分離して自分自身を設定できますが、サブプロジェクトが共通の特性を共有することは一般的です。通常、プロジェクト間で設定を共有することをお勧めします。そのため、同じ設定が複数のサブプロジェクトに影響します。
+
+非常に単純なマルチプロジェクトビルドから始めましょう。 Gradleはその核となる汎用のビルドツールであるため、プロジェクトはJavaプロジェクトである必要はありません。私たちの最初の例は海洋生物についてです。
+
+構成と実行
+ビルドフェーズはすべてのGradleビルドのフェーズを説明します。マルチプロジェクトビルドの構成と実行のフェーズを詳しく見てみましょう。ここでの設定とは、プロジェクトのbuild.gradle（またはbuild.gradle.kts）ファイルを実行するor&#39;apply plugin&#39;またはpluginsブロックを使って宣言されたすべてのプラグインをダウンロードすることを意味します。 デフォルトでは、すべてのプロジェクトの設定はタスクが実行される前に行われます。つまり、単一プロジェクトからの単一タスクが要求されると、マルチプロジェクトビルドのすべてのプロジェクトが最初に構成されます。すべてのプロジェクトを設定する必要があるのは、Gradleプロジェクトモデルの任意の部分にアクセスして変更できる柔軟性をサポートするためです。
+
+オンデマンド設定
+すべてのプロジェクトは実行フェーズの前に構成されるので、構成注入機能および完全なプロジェクトモデルへのアクセスが可能です。しかし、このアプローチは非常に大規模なマルチプロジェクトビルドでは最も効率的ではないかもしれません。 Gradleは何百ものサブプロジェクトの階層でビルドされています。巨大なマルチプロジェクトビルドの設定時間は、目立つようになるかもしれません。スケーラビリティはGradleにとって重要な要件です。そのため、バージョン1.4から始まって、新しいインキュベーション &#39;configuration on demand&#39;モードが導入されました。
+
+コンフィギュレーションオンデマンドモードは、要求されたタスクに関連するプロジェクトのみを設定しようとします。つまり、ビルドに参加しているプロジェクトのbuild.gradle [.kts]ファイルのみを実行します。これにより、大規模なマルチプロジェクトビルドの構成時間を短縮できます。長期的には、このモードがデフォルトモードになるでしょう。おそらくGradleビルド実行のための唯一のモードです。コンフィギュレーションオンデマンド機能はインキュベーション中であるため、すべてのビルドが正しく機能することが保証されているわけではありません。この機能は、プロジェクトが分離されているマルチプロジェクトビルドでは非常にうまく機能するはずです。 「オンデマンド設定」モードでは、プロジェクトは次のように設定されます。
+
+ルートプロジェクトは常に設定されています。このようにして、一般的な共通設定（allprojectsまたはsubprojectsスクリプトブロック）がサポートされます。
+
+ビルドが実行されるディレクトリ内のプロジェクトも設定されていますが、それはGradleがタスクなしで実行されたときだけです。このようにして、プロジェクトがオンデマンドで構成されている場合、デフォルトのタスクは正しく動作します。
+
+標準のプロジェクト依存関係がサポートされており、関連プロジェクトを構成します。プロジェクトAにプロジェクトBに対するコンパイル依存関係がある場合、Aをビルドすると両方のプロジェクトが構成されます。
+
+タスクパスを介して宣言されたタスクの依存関係はサポートされており、関連プロジェクトを設定します。例：someTask.dependsOn（ &quot;：someOtherProject：someOtherTask&quot;）
+
+コマンドライン（またはTooling API）からタスクパスを介して要求されたタスクにより、関連プロジェクトが構成されます。例えば、 &#39;projectA：projectB：someTask&#39;をビルドするとprojectBが構成されます。
+
+この新機能を試してみたい？ビルドを実行するたびにオンデマンドで設定するには、Gradleプロパティを参照してください。特定のビルドに対してのみオンデマンドで設定するには、コマンドラインパフォーマンス指向のオプションを参照してください。
+
+一般的な振る舞いを定義する
+次のプロジェクトツリーでいくつかの例を見てみましょう。これはwaterという名前のルートプロジェクトとbluewhaleという名前のサブプロジェクトを含むマルチプロジェクトビルドです。
+
+例1マルチプロジェクトツリー - 水とシロナガスクジラのプロジェクト
+GroovyKotlin
+プロジェクトレイアウト
+。
+├──クロクジラ/
+├──build.gradle
+└──settings.gradle
+✨
+この例のコードは、Gradleの &#39;-all&#39;配布のsamples / userguide / multiproject / firstExample / waterにあります。
+GroovyKotlin
+settings.gradle
+rootProject.name = &#39;water&#39;
+「シロナガスクジラ」を含む
+そして、シロナガスクジラプロジェクトのためのビルドスクリプトはどこにありますか？ Gradleでは、ビルドスクリプトはオプションです。 1つのプロジェクトビルドでは、ビルドスクリプトのないプロジェクトはあまり意味がありません。マルチプロジェクトビルドでは状況が異なります。 waterプロジェクトのビルドスクリプトを見て実行しましょう。
+
+例2水（親）プロジェクトのスクリプトを作成する
+GroovyKotlin
+build.gradle
+クロージャcl = {task  - &gt; println &quot;私は$ task.project.nameです&quot;}
+task（ &#39;hello&#39;）。doLast（cl）
+プロジェクト（ &#39;：bluewhale&#39;）{
+    task（ &#39;hello&#39;）。doLast（cl）
+}
+gradle -q helloの出力
+&gt; gradle -qこんにちは
+私は水です
+私はシロナガスクジラです
+Gradleを使用すると、任意のビルドスクリプトからマルチプロジェクトビルドの任意のプロジェクトにアクセスできます。 Project APIはproject（）と呼ばれるメソッドを提供します。このメソッドは引数としてパスを取り、このパスのProjectオブジェクトを返します。私たちがクロスプロジェクト設定と呼ぶ、任意のビルドスクリプトからプロジェクトビルドを設定する機能。 Gradleはこれを設定注入によって実装します。
+
+私たちは水プロジェクトの構築スクリプトにそれほど満足していません。プロジェクトごとにタスクを明示的に追加するのは不便です。私たちはもっとうまくやれるのです。最初に、krillという別のプロジェクトをマルチプロジェクトビルドに追加しましょう。
+
+Example 3.マルチプロジェクトツリー - 水、シロナガスクジラ、オキアミプロジェクト
+GroovyKotlin
+プロジェクトレイアウト
+。
+├──クロクジラ/
+├──build.gradle
+├──オキアミ/
+└──settings.gradle
+✨
+この例のコードはGradleの &#39;-all&#39;ディストリビューションのsamples / userguide / multiproject / addKrill / waterにあります。
+GroovyKotlin
+settings.gradle
+rootProject.name = &#39;water&#39;
+
+&#39;bluewhale&#39;、 &#39;krill&#39;を含める
+今度はwater buildスクリプトを書き換えて1行にまとめます。
+
+例4水プロジェクト構築スクリプト
+GroovyKotlin
+build.gradle
+allprojects {
+    タスクこんにちは{
+        doLast {タスク - &gt;
+            println &quot;私は$ task.project.nameです&quot;
+        }
+    }
+}
+gradle -q helloの出力
+&gt; gradle -qこんにちは
+私は水です
+私はシロナガスクジラです
+私はオキアミです
+これはクールですか、これはクールですか？そしてこれはどのように機能しますか？ Project APIには、現在のプロジェクトとその下にあるすべてのサブプロジェクトのリストを返すプロパティallprojectsがあります。クロージャー付きでallprojectsを呼び出すと、クロージャーのステートメントはallprojectsに関連付けられているプロジェクトに委任されます。 allprojects.each（Groovyの場合）またはallprojects.forEach（Kotlinの場合）を介して反復を実行することもできますが、それはより冗長です。
+
+他のビルドシステムは共通の振る舞いを定義するための主要な手段として継承を使用します。後で見るように、私たちはプロジェクトの継承も提供します。しかしGradleは一般的な振る舞いを定義する通常の方法として設定注入を使います。私たちはそれがマルチプロジェクトビルドを設定するための非常に強力で柔軟な方法を提供すると思います。
+
+設定を共有するためのもう一つの可能​​性は共通の外部スクリプトを使うことです。
+
+サブプロジェクト構成
+プロジェクトAPIには、サブプロジェクトのみにアクセスするためのプロパティもあります。
+
+一般的な振る舞いを定義する
+例5すべてのプロジェクトとサブプロジェクトの共通の振る舞いを定義する
+GroovyKotlin
+build.gradle
+allprojects {
+    タスクこんにちは{
+        doLast {タスク - &gt;
+            println &quot;私は$ task.project.nameです&quot;
+        }
+    }
+}
+サブプロジェクト{
+    こんにちは {
+        doLast {
+            println &quot; - 私は水に頼る&quot;
+        }
+    }
+}
+gradle -q helloの出力
+&gt; gradle -qこんにちは
+私は水です
+私はシロナガスクジラです
+ - 水に頼る
+私はオキアミです
+ - 水に頼る
+「hello」タスクを参照する2つのコードスニペットがあることに気付くかもしれません。 1つ目は、「task」キーワード（Groovyの場合）またはtask（）関数（Kotlinの場合）を使用してタスクを構成し、それに基本構成を提供します。 2番目の部分は、既存の「hello」タスクをさらに設定するため、「task」キーワードまたは機能は使用しません。プロジェクト内で一度だけタスクを構築できますが、追加の設定を提供するために任意の数のコードブロックを追加できます。
+
+特定の動作を追加する
+一般的な動作に加えて、特定の動作を追加できます。通常、この特定の動作を適用したいプロジェクトのビルドスクリプトに、プロジェクト固有の動作を入れます。しかし、すでに見たように、このようにする必要はありません。 bluewhaleプロジェクトには、プロジェクト固有の動作を次のように追加できます。
+
+例6特定のプロジェクトに対する特定の振る舞いを定義する
+GroovyKotlin
+build.gradle
+allprojects {
+    タスクこんにちは{
+        doLast {タスク - &gt;
+            println &quot;私は$ task.project.nameです&quot;
+        }
+    }
+}
+サブプロジェクト{
+    こんにちは {
+        doLast {
+            println &quot; - 私は水に頼る&quot;
+        }
+    }
+}
+project（ &#39;：bluewhale&#39;）。こんにちは{
+    doLast {
+        println「 - 私はこれまでにこの惑星に住んできた中で最大の動物です。」
+    }
+}
+gradle -q helloの出力
+&gt; gradle -qこんにちは
+私は水です
+私はシロナガスクジラです
+ - 水に頼る
+ - 私は今までこの惑星に住んできた中で最大の動物です。
+私はオキアミです
+ - 水に頼る
+すでに述べたように、通常、プロジェクト固有の動作をこのプロジェクトのビルドスクリプトに含めることを好みます。リファクタリングして、プロジェクト固有の動作をオキアミプロジェクトに追加しましょう。
+
+例7プロジェクトkrillの特定の振る舞いを定義する
+GroovyKotlin
+プロジェクトレイアウト
+。
+├──シロナガスクジラ
+│└──build.gradle
+├──build.gradle
+├──オキアミ
+│└──build.gradle
+└──settings.gradle
+✨
+この例のコードはGradleの &#39;-all&#39;ディストリビューションのsamples / userguide / multiproject / spreadSpecifics / waterにあります。
+GroovyKotlin
+settings.gradle
+rootProject.name = &#39;water&#39;
+&#39;bluewhale&#39;、 &#39;krill&#39;を含める
+bluewhale / build.gradle
+hello.doLast {
+  println「 - 私はこれまでにこの惑星に住んできた中で最大の動物です。」
+}
+オキアミ/ build.gradle
+hello.doLast {
+  println &quot; - 夏の私の種の体重は、全人間の2倍の重さです。&quot;
+}
+build.gradle
+allprojects {
+    タスクこんにちは{
+        doLast {タスク - &gt;
+            println &quot;私は$ task.project.nameです&quot;
+        }
+    }
+}
+サブプロジェクト{
+    こんにちは {
+        doLast {
+            println &quot; - 私は水に頼る&quot;
+        }
+    }
+}
+gradle -q helloの出力
+&gt; gradle -qこんにちは
+私は水です
+私はシロナガスクジラです
+ - 水に頼る
+ - 私は今までこの惑星に住んできた中で最大の動物です。
+私はオキアミです
+ - 水に頼る
+ - 夏の私の種の体重は、すべての人間の2倍です。
+プロジェクトフィルタリング
+構成インジェクションの力をもっと発揮するために、tropicalFishという別のプロジェクトを追加し、waterプロジェクトのビルドスクリプトを使用してビルドに動作を追加しましょう。
+
+名前によるフィルタリング
+例8.いくつかのプロジェクトにカスタム動作を追加する（プロジェクト名でフィルタリング）
+GroovyKotlin
+プロジェクトレイアウト
+。
+├──クロクジラ/
+│└──build.gradle
+├──build.gradle
+├──オキアミ/
+│└──build.gradle
+├──settings.gradle
+└──トロピカルフィッシュ/
+✨
+この例のコードはGradleの &#39;-all&#39;配布のsamples / userguide / multiproject / addTropical / waterにあります。
+GroovyKotlin
+settings.gradle
+rootProject.name = &#39;water&#39;
+&#39;bluewhale&#39;、 &#39;krill&#39;、 &#39;tropicalFish&#39;を含む
+build.gradle
+allprojects {
+    タスクこんにちは{
+        doLast {タスク - &gt;
+            println &quot;私は$ task.project.nameです&quot;
+        }
+    }
+}
+サブプロジェクト{
+    こんにちは {
+        doLast {
+            println &quot; - 私は水に頼る&quot;
+        }
+    }
+}
+configure（subprojects.findAll {it.name！= &#39;tropicalFish&#39;}）{
+    こんにちは {
+        doLast {
+            println &#39; - 北極海で過ごすのが大好きです。
+        }
+    }
+}
+gradle -q helloの出力
+&gt; gradle -qこんにちは
+私は水です
+私はシロナガスクジラです
+ - 水に頼る
+ - 北極海で過ごすのが大好きです。
+ - 私は今までこの惑星に住んできた中で最大の動物です。
+私はオキアミです
+ - 水に頼る
+ - 北極海で過ごすのが大好きです。
+ - 夏の私の種の体重は、すべての人間の2倍です。
+私はtropicalFishです
+ - 水に頼る
+configure（）メソッドはリストを引数として取り、このリスト内のプロジェクトに設定を適用します。
+
+プロパティによるフィルタリング
+フィルタリングにプロジェクト名を使用することは1つの選択肢です。追加のプロジェクトプロパティを使用することももう1つの方法です。
+
+例9一部のプロジェクトにカスタム動作を追加する（プロジェクトプロパティでフィルタリング）
+GroovyKotlin
+プロジェクトレイアウト
+。
+├──シロナガスクジラ
+│└──build.gradle
+├──build.gradle
+├──オキアミ
+│└──build.gradle
+├──settings.gradle
+└──トロピカルフィッシュ
+    └──build.gradle
+✨
+この例のコードは、Gradleの-allディストリビューションのsamples / userguide / multiproject / tropicalWithProperties / waterにあります。
+GroovyKotlin
+settings.gradle
+rootProject.name = &#39;water&#39;
+&#39;bluewhale&#39;、 &#39;krill&#39;、 &#39;tropicalFish&#39;を含む
+bluewhale / build.gradle
+ext.arctic = true
+hello.doLast {
+  println「 - 私はこれまでにこの惑星に住んできた中で最大の動物です。」
+}
+オキアミ/ build.gradle
+ext.arctic = true
+hello.doLast {
+    println &quot; - 夏の私の種の体重は、全人間の2倍の重さです。&quot;
+}
+build.gradle
+allprojects {
+    タスクこんにちは{
+        doLast {タスク - &gt;
+            println &quot;私は$ task.project.nameです&quot;
+        }
+    }
+}
+サブプロジェクト{
+    こんにちは {
+        doLast {println &quot; - 私は水に頼っています&quot;}
+    }
+
+    afterEvaluate {プロジェクトプロジェクト - &gt;
+        if（project.arctic）{
+            hello.configure {
+                doLast {
+                    println &#39; - 北極海で過ごすのが大好きです。
+                }
+            }
+        }
+    }
+}
+tropicalFish / build.gradle
+ext.arctic = false
+gradle -q helloの出力
+&gt; gradle -qこんにちは
+私は水です
+私はシロナガスクジラです
+ - 水に頼る
+ - 私は今までこの惑星に住んできた中で最大の動物です。
+ - 北極海で過ごすのが大好きです。
+私はオキアミです
+ - 水に頼る
+ - 夏の私の種の体重は、すべての人間の2倍です。
+ - 北極海で過ごすのが大好きです。
+私はtropicalFishです
+ - 水に頼る
+水プロジェクトのビルドファイルでは、afterEvaluate通知を使用しています。これは、サブプロジェクトのビルドスクリプトが評価された後に、渡しているクロージャが評価されることを意味します。プロパティarcticはこれらのビルドスクリプトで設定されているので、このようにしなければなりません。このトピックに関する詳細は、依存関係 - どの依存関係にありますか。
+
+マルチプロジェクトビルドの実行ルール
+ルートプロジェクトdirからhelloタスクを実行すると、物事は直感的な方法で動作しました。さまざまなプロジェクトのすべてのHelloタスクが実行されました。シロナガスクジラのディレクトリに切り替えて、そこからGradleを実行するとどうなるかを見てみましょう。
+
+サブプロジェクトからビルドを実行する
+&gt; gradle -qこんにちは
+私はシロナガスクジラです
+ - 水に頼る
+ - 私は今までこの惑星に住んできた中で最大の動物です。
+ - 北極海で過ごすのが大好きです。
+Gradleの行動の背後にある基本的な規則は簡単です。 Gradleは、現在のディレクトリから始めて、helloという名前のタスクを探し、それらを実行します。注意すべきことが1つあります。 Gradleは常にマルチプロジェクトビルドのすべてのプロジェクトを評価し、既存のすべてのタスクオブジェクトを作成します。次に、タスク名の引数と現在のディレクトリに従って、Gradleは実行されるべきタスクをフィルタリングします。 Gradleのクロスプロジェクト構成のため、すべてのプロジェクトはタスクが実行される前に評価される必要があります。これについては次のセクションで詳しく説明します。最後の海洋の例を見てみましょう。シロナガスクジラとオキアミにタスクを追加しましょう。
+
+例10プロジェクトの評価と実施
+GroovyKotlin
+bluewhale / build.gradle
+ext.arctic = true
+こんにちは {
+    doLast {
+        println「 - 私はこれまでにこの惑星に住んできた中で最大の動物です。」
+    }
+}
+
+タスクdistanceToIceberg {
+    doLast {
+        println &#39;20海里 &#39;
+    }
+}
+オキアミ/ build.gradle
+ext.arctic = true
+こんにちは {
+    doLast {
+        println &quot; - 夏の私の種の体重は、全人間の2倍の重さです。&quot;
+    }
+}
+
+タスクdistanceToIceberg {
+    doLast {
+        println &#39;5海里&#39;
+    }
+}
+gradleの出力-q distanceToIceberg
+&gt; gradle -q distanceToIceberg
+20海里
+5海里
+これが-qオプションなしの出力です。
+
+グラドルdistanceToIcebergの出力
+&gt; gradle distanceToIceberg
+
+&gt;タスク：bluewhale：distanceToIceberg
+20海里
+
+&gt;タスク：オキアミ：distanceToIceberg
+5海里
+
+0で成功しました
+実行可能な2タスク：2実行
+構築は水プロジェクトから実行されます。 waterもtropicalFishもdistanceToIcebergという名前のタスクを持っていません。 Gradleは気にしません。すでに上で述べた簡単な規則は、次のとおりです。この名前を持つすべてのタスクを階層の下で実行します。そのようなタスクがない場合にのみ文句を言う！
+
+絶対パスでタスクを実行する
+これまで見てきたように、サブプロジェクトdirを入力してマルチプロジェクトビルドを実行し、そこからビルドを実行できます。現在のディレクトリで始まるプロジェクト階層の一致するすべてのタスク名が実行されます。しかし、Gradleはタスクを絶対パスで実行することも提案しています（プロジェクトパスとタスクパスも参照）。
+
+絶対パスでタスクを実行する
+&gt; gradle -q：こんにちは：オキアミ：こんにちはこんにちは
+私は水です
+私はオキアミです
+ - 水に頼る
+ - 夏の私の種の体重は、すべての人間の2倍です。
+ - 北極海で過ごすのが大好きです。
+私はtropicalFishです
+ - 水に頼る
+ビルドはtropicalFishプロジェクトから実行されます。私たちは水、オキアミ、tropicalFishプロジェクトのこんにちはタスクを実行します。最初の2つのタスクは絶対パスで指定され、最後のタスクは上記の名前一致メカニズムを使用して実行されます。
+
+プロジェクトとタスクのパス
+プロジェクトパスのパターンは次のとおりです。ルートプロジェクトを示すオプションのコロンで始まります。ルートプロジェクトは、パスでその名前で指定されていない唯一のプロジェクトです。プロジェクトパスの残りの部分は、コロンで区切られた一連のプロジェクト名です。ここで、次のプロジェクトは前のプロジェクトのサブプロジェクトです。
+
+タスクのパスは、「：bluewhale：hello」のように、単にプロジェクトパスとタスク名を足したものです。プロジェクト内では、同じプロジェクトのタスクを名前だけでアドレス指定できます。これは相対パスとして解釈されます。
+
+依存関係 - どの依存関係ですか？
+プロジェクトには実行依存関係がないため、最後のセクションの例は特別なものでした。それらには構成依存関係しかありませんでした。次のセクションでは、これら2種類の依存関係の違いについて説明します。
+
+実行依存関係
+依存関係と実行順序
+例11.依存関係と実行順序
+GroovyKotlin
+プロジェクトレイアウト
+。
+├──build.gradle
+├──消費者
+│└──build.gradle
+├──プロデューサー
+│└──build.gradle
+└──settings.gradle
+✨
+この例のコードはGradleの &#39;-all&#39;ディストリビューションのsamples / userguide / multiproject / dependencies / firstMessages / messagesにあります。
+GroovyKotlin
+build.gradle
+ext.producerMessage = null
+settings.gradle
+「消費者」、「生産者」を含む
+consumer / build.gradle
+タスクアクション{
+    doLast {
+        println（ &quot;メッセージを消費しています：$ {rootProject.producerMessage}&quot;）
+    }
+}
+プロデューサー/ build.gradle
+タスクアクション{
+    doLast {
+        println &quot;メッセージを作成中：&quot;
+        &#39;rootProject.producerMessage =&#39;実行順序を監視します。
+    }
+}
+gradle -qアクションの出力
+&gt; gradle -qアクション
+メッセージを消費中：null
+メッセージを生成する：
+これは私たちが望むことを完全にはしませんでした。他に何も定義されていない場合、Gradleは英数字順にタスクを実行します。そのため、Gradleは &quot;：producer：action&quot;の前に &quot;：consumer：action&quot;を実行します。これをハックで解決し、プロデューサープロジェクトの名前を「aProducer」に変更しましょう。
+
+例12依存関係と実行順序
+GroovyKotlin
+プロジェクトレイアウト
+。
+├──aプロデューサー
+│└──build.gradle
+├──build.gradle
+├──消費者
+│└──build.gradle
+└──settings.gradle
+GroovyKotlin
+build.gradle
+ext.producerMessage = null
+settings.gradle
+&#39;consumer&#39;、 &#39;aProducer&#39;を含みます
+consumer / build.gradle
+タスクアクション{
+    doLast {
+        println（ &quot;メッセージを消費しています：$ {rootProject.producerMessage}&quot;）
+    }
+}
+aProducer / build.gradle
+タスクアクション{
+    doLast {
+        println &quot;メッセージを作成中：&quot;
+        &#39;rootProject.producerMessage =&#39;実行順序を監視します。
+    }
+}
+gradle -qアクションの出力
+&gt; gradle -qアクション
+メッセージを生成する：
+メッセージを消費する：実行の順番を見ます。
+ここでコンシューマディレクトリに切り替えてビルドを実行すると、このハックがどこでうまくいかないかを示すことができます。
+
+消費者ディレクトリからのgradle -qアクションの出力
+&gt; gradle -qアクション
+メッセージを消費中：null
+問題は、2つの「アクション」タスクが無関係であるということです。 「メッセージ」プロジェクトからビルドを実行すると、Gradleは同じ名前を持ち、階層の下位にあるため、両方を実行します。最後の例では、1つの「アクション」タスクのみが階層の下にあり、したがってそれが実行された唯一のタスクでした。このハックよりも優れたものが必要です。
+
+実生活の例
+Gradleのマルチプロジェクト機能は、実際のユースケースによって推進されています。 1つの良い例は、2つのWebアプリケーションプロジェクトと、2つのWebアプリケーションを含むディストリビューションを作成する親プロジェクトから構成されています[1]。この例では、ビルドスクリプトを1つだけ使用し、プロジェクト間設定を行います。
+
+例13依存関係 - 実際の例 - クロスプロジェクト構成
+GroovyKotlin
+プロジェクトレイアウト
+。
+├──build.gradle
+├──デート
+│└──src
+│└──メイン
+│├──java
+││└──org
+││└──グラドル
+││└──サンプル
+││└──DateServlet.java
+│└──ウェブアプリ
+│└──web.xml
+├──こんにちは
+│└──src
+│└──メイン
+│├──java
+││└──org
+││└──グラドル
+││└──サンプル
+││└──HelloServlet.java
+│└──ウェブアプリ
+│└──web.xml
+└──settings.gradle
+✨
+この例のコードはGradleの &#39;-all&#39;ディストリビューションのsamples / userguide / multiproject / dependencies / webDistにあります。
+GroovyKotlin
+settings.gradle
+rootProject.name = &#39;webDist&#39;
+&#39;date&#39;、 &#39;hello&#39;を含める
+build.gradle
+allprojects {
+    プラグインを適用する： &#39;java&#39;
+    group = &#39;org.gradle.sample&#39;
+    version = &#39;1.0&#39;
+}
+
+サブプロジェクト{
+    プラグインを適用する： &#39;war&#39;
+    リポジトリ{
+        mavenCentral（）
+    }
+    依存関係{
+        &quot;javax.servlet：servlet-api：2.5&quot;をコンパイルしてください。
+    }
+}
+
+task explodeDist（タイプ：コピー）{
+    &quot;$ buildDir / explodeDist&quot;へ
+    サブプロジェクト{
+        tasks.withTypeから（戦争）
+    }
+}
+興味深い一連の依存関係があります。 WebアプリケーションプロジェクトのすべてのビルドロジックはwebDistによってインジェクトされるため、dateプロジェクトとhelloプロジェクトはwebDistに設定依存していることは明らかです。 webDistはdateとhelloのビルド成果物に依存するため、実行依存関係は反対方向です。第三の依存関係さえあります。 webDistはarchivePathを知る必要があるため、dateおよびhelloに設定依存関係があります。しかし、それは実行時にこの情報を要求します。したがって、循環依存はありません。
+
+このような依存関係のパターンは、マルチプロジェクトビルドの問題空間における日常的な問題です。ビルドシステムでこれらのパターンがサポートされていない場合は、問題を解決できないか、ビルドマスターとしての維持管理が困難で生産性が大幅に低下する醜いハックを実行する必要があります。
+
+プロジェクトライブラリの依存関係
+あるプロジェクトが、そのコンパイルパス内で別のプロジェクトによって生成されたjarファイルを必要とし、jarファイルだけでなくこのjarファイルの推移的な依存関係も必要とする場合はどうなりますか？明らかに、これはJavaマルチプロジェクトビルドの非常に一般的なユースケースです。プロジェクトの依存関係で述べたように、Gradleはプロジェクトライブラリの依存関係を提供しています。
+
+例14.プロジェクトlibの依存関係
+GroovyKotlin
+プロジェクトレイアウト
+。
+├──api
+│└──src
+│├──main
+││└──java
+││└──org
+││└──グラドル
+││└──サンプル
+││├──api
+│││└──Person.java
+││└──apiImpl
+││└──PersonImpl.java
+│└──テスト
+│└──java
+│└──org
+│└──グラドル
+│└──PersonTest.java
+├──build.gradle
+├──サービス
+│└──personService
+│└──src
+│├──main
+││└──java
+││└──org
+││└──グラドル
+││└──サンプル
+││└──サービス
+││└──PersonService.java
+│└──テスト
+│└──java
+│└──org
+│└──グラドル
+│└──サンプル
+│└──サービス
+│└──PersonServiceTest.java
+├──settings.gradle
+└──共有
+    └──src
+        └──メイン
+            └──java
+                └──org
+                    └──グラドル
+                        └──サンプル
+                            └──共有
+                                └──Helper.java
+✨
+この例のコードはGradleの &#39;-all&#39;ディストリビューションのsamples / userguide / multiproject / dependencies / javaにあります。
+「shared」、「api」、および「personService」というプロジェクトがあります。 “ personService”プロジェクトは他の2つのプロジェクトにlib依存しています。 “ api”プロジェクトは“ shared”プロジェクトにlib依存しています。 「サービス」もプロジェクトですが、私たちはコンテナとしてそれを使用しています。これにはビルドスクリプトがなく、他のビルドスクリプトによって何も注入されません。プロジェクトパスを定義するために：セパレータを使います。プロジェクトパスの定義の詳細については、Settings.include（java.lang.String []）のDSLドキュメントを参照してください。
+
+GroovyKotlin
+settings.gradle
+&#39;api&#39;、 &#39;shared&#39;、 &#39;services：personService&#39;を含めます
+build.gradle
+/ *
+ *著作権2018元の著者または著者。
+ *
+ * Apache License、Version 2.0（以下「ライセンス」）に基づきライセンスされています。
+ *ライセンスに準拠している場合を除き、このファイルを使用することはできません。
+ *あなたは、ライセンスのコピーを以下から入手することができます。
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *適用法により要求されない限り、または書面による合意がない限り、ソフトウェア
+ *ライセンスに基づいて配布されるものは、「現状のまま」で配布されます。
+ *明示または黙示を問わず、いかなる種類の保証または条件もありません。
+ *許可を管理する特定の言語については、ライセンスを参照してください。
+ *ライセンスに基づく制限
+ * /
+
+サブプロジェクト{
+    プラグインを適用する： &#39;java&#39;
+    group = &#39;org.gradle.sample&#39;
+    version = &#39;1.0&#39;
+    リポジトリ{
+        mavenCentral（）
+    }
+    依存関係{
+        testImplementation &quot;junit：junit：4.12&quot;
+    }
+}
+
+プロジェクト（ &#39;：api&#39;）{
+    依存関係{
+        実施プロジェクト（ &#39;：shared&#39;）
+    }
+}
+
+project（ &#39;：services：personService&#39;）{
+    依存関係{
+        実装プロジェクト（ &#39;：shared&#39;）、プロジェクト（ &#39;：api&#39;）
+    }
+}
+すべてのビルドロジックはルートプロジェクトのビルドスクリプトにあります[2]。 “ lib”依存関係は特別な形式の実行依存関係です。他のプロジェクトが最初にビルドされ、他のプロジェクトのクラスを含むjarファイルがクラスパスに追加されます。他のプロジェクトの依存関係もクラスパスに追加されます。そのため、「api」ディレクトリに入り、「gradle compile」を起動できます。最初に「shared」プロジェクトが構築され、次に「api」プロジェクトが構築されます。プロジェクトの依存関係により、部分的なマルチプロジェクトビルドが可能になります。
+
+もしあなたがMavenの土地から来たのなら、あなたはこれに完全に満足しているでしょう。あなたがアイビーの土地から来た場合、あなたはいくつかのよりきめ細かい制御を期待するかもしれません。 Gradleはこれをあなたに提供します：
+
+例15依存関係に対するきめ細かい制御
+GroovyKotlin
+build.gradle
+サブプロジェクト{
+    プラグインを適用する： &#39;java&#39;
+    group = &#39;org.gradle.sample&#39;
+    version = &#39;1.0&#39;
+}
+
+プロジェクト（ &#39;：api&#39;）{
+    構成{
+        スピ
+    }
+    依存関係{
+        プロジェクトをコンパイルする（ &#39;：shared&#39;）
+    }
+    task spiJar（タイプ：Jar）{
+        archiveBaseName = &#39;api-spi&#39;
+        sourceSets.main.outputから
+        include（ &#39;org / gradle / sample / api / **&#39;）
+    }
+    アーティファクト{
+        spi spiJar
+    }
+}
+
+project（ &#39;：services：personService&#39;）{
+    依存関係{
+        プロジェクトをコンパイルする（ &#39;：shared&#39;）
+        プロジェクトをコンパイルします（パス： &#39;：api&#39;、構成： &#39;spi&#39;）
+        testCompile &quot;junit：junit：4.12&quot;、プロジェクト（ &#39;：api&#39;）
+    }
+}
+Javaプラグインは、デフォルトですべてのクラスを含むjarをプロジェクトライブラリに追加します。この例では、“ api”プロジェクトのインターフェースのみを含む追加のライブラリを作成します。このライブラリを新しい依存関係設定に割り当てます。個人サービスの場合、プロジェクトは「api」インターフェースに対してのみコンパイルされ、「api」のすべてのクラスでテストされるべきであると宣言します。
+
+別のプロジェクトによって生成されたタスク出力に応じて
+プロジェクト依存関係は、モジュール間の依存関係をモデル化します。事実上、あなたは他のプロジェクトの主な成果に依存していると言っています。 Javaベースのプロジェクトでは通常JARファイルです。
+
+他のタスクによって生成された出力に依存したいことがあるかもしれません。その結果、その出力を生成するためにタスクが事前に実行されていることを確認する必要があります。あるプロジェクトから別のプロジェクトへのタスク依存関係の宣言は、この種の関係をモデル化するには不適切な方法であり、不要な結合をもたらします。そのような依存関係をモデル化するための推奨される方法は、出力を生成するか、それを「発信」成果物としてマークするか、または消費プロジェクトで依存できるメインソースセットの出力に追加することです。
+
+プロデューサーとコンシューマーという2つのサブプロジェクトを使用してマルチプロジェクトビルドで作業しているとしましょう。サブプロジェクトプロデューサは、ビルド情報を含むプロパティファイルを生成するbuildInfoという名前のタスクを定義します。プロジェクトのバージョン属性builtByは、推論されたタスク依存関係を確立するようにします。 builtByについて詳しくは、SourceSetOutputを参照してください。
+
+例16.ビルド情報を含むプロパティファイルを生成するタスク
+GroovyKotlin
+build.gradle
+タスクbuildInfo（タイプ：BuildInfo）{
+    version = project.version
+    outputFile = file（ &quot;$ buildDir / generated-resources / build-info.properties&quot;）
+}
+
+sourceSets {
+    メイン{
+        output.dir（buildInfo.outputFile.parentFile、builtBy：buildInfo）
+    }
+}
+消費プロジェクトは実行時にプロパティファイルを読み取ることができるはずです。プロジェクトを作成プロジェクトに依存させることを宣言すると、事前にプロパティを作成してランタイムクラスパスで使用できるようになります。
+
+例17.プロパティファイルを生成するプロジェクトへのプロジェクト依存関係の宣言
+GroovyKotlin
+build.gradle
+依存関係{
+    runtimeOnlyプロジェクト（ &#39;：producer&#39;）
+}
+上記の例では、コンシューマはプロデューサプロジェクトの出力への依存関係を宣言しています。
+
+並列プロジェクト実行
+開発者のデスクトップやCIサーバーで利用可能なCPUコアが増えるにつれて、Gradleがこれらの処理リソースを完全に利用できるようになることが重要です。より具体的には、並列実行は次のことを試みます。
+
+実行がI / Oバウンドであるか、そうでなければすべての利用可能なCPUリソースを消費しないマルチプロジェクトビルドの合計ビルド時間を短縮します。
+
+他のプロジェクトの完了を待たずに、小規模プロジェクトの実行に対して迅速なフィードバックを提供します。
+
+GradleはすでにTest.setMaxParallelForks（int）による並列テスト実行を提供していますが、このセクションで説明する機能はプロジェクトレベルでの並列実行です。
+
+並列プロジェクト実行により、分離マルチプロジェクトビルド内の別々のプロジェクトを並列に実行することができます（分離プロジェクトも参照）。並列実行では構成時に厳密に分離する必要はありませんが、長期的な目標は、完全に分離されたプロジェクトに使用できる強力な機能セットを提供することです。そのような機能は次のとおりです。
+
+オンデマンド設定
+
+プロジェクトの並列構成
+
+変更のないプロジェクトのための設定の再利用
+
+プロジェクトレベルの最新チェック
+
+依存プロジェクトを構築する代わりに事前構築済みの成果物を使用する。
+
+並列実行はどのように機能しますか？まず、Gradleにパラレルモードを使うように指示する必要があります。 --parallelコマンドライン引数を使用するか、ビルド環境を設定することができます（Gradleプロパティ）。 Unless you provide a specific number of parallel threads, Gradle attempts to choose the right number based on available CPU cores. Every parallel worker exclusively owns a given project while executing a task. Task dependencies are fully supported and parallel workers will start executing upstream tasks first. Bear in mind that the alphabetical ordering of decoupled tasks, as can be seen during sequential execution, is not guaranteed in parallel mode. In other words, in parallel mode tasks will run as soon as their dependencies complete and a task worker is available to run them, which may be earlier than they would start during a sequential build. You should make sure that task dependencies and task inputs/outputs are declared correctly to avoid ordering issues.
+
+Decoupled Projects
+Gradle allows any project to access any other project during both the configuration and execution phases. While this provides a great deal of power and flexibility to the build author, it also limits the flexibility that Gradle has when building those projects. For instance, this effectively prevents Gradle from correctly building multiple projects in parallel, configuring only a subset of projects, or from substituting a pre-built artifact in place of a project dependency.
+
+Two projects are said to be decoupled if they do not directly access each other’s project model. Decoupled projects may only interact in terms of declared dependencies: project dependencies and/or task dependencies. Any other form of project interaction (i.e. by modifying another project object or by reading a value from another project object) causes the projects to be coupled. The consequence of coupling during the configuration phase is that if gradle is invoked with the &#39;configuration on demand&#39; option, the result of the build can be flawed in several ways. The consequence of coupling during execution phase is that if gradle is invoked with the parallel option, one project task runs too late to influence a task of a project building in parallel. Gradle does not attempt to detect coupling and warn the user, as there are too many possibilities to introduce coupling.
+
+A very common way for projects to be coupled is by using configuration injection. It may not be immediately apparent, but using key Gradle features like the allprojects and subprojects keywords automatically cause your projects to be coupled. This is because these keywords are used in a build.gradle file, which defines a project. Often this is a “root project” that does nothing more than define common configuration, but as far as Gradle is concerned this root project is still a fully-fledged project, and by using allprojects that project is effectively coupled to all other projects. Coupling of the root project to subprojects does not impact &#39;configuration on demand&#39;, but using the allprojects and subprojects in any subproject’s build.gradle file will have an impact.
+
+This means that using any form of shared build script logic or configuration injection (allprojects, subprojects, etc.) will cause your projects to be coupled. As we extend the concept of project decoupling and provide features that take advantage of decoupled projects, we will also introduce new features to help you to solve common use cases (like configuration injection) without causing your projects to be coupled.
+
+In order to make good use of cross project configuration without running into issues for parallel and &#39;configuration on demand&#39; options, follow these recommendations:
+
+Avoid a subproject’s build script referencing other subprojects; preferring cross configuration from the root project.
+
+Avoid changing the configuration of other projects at execution time.
+
+Multi-Project Building and Testing
+The build task of the Java plugin is typically used to compile, test, and perform code style checks (if the CodeQuality plugin is used) of a single project. In multi-project builds you may often want to do all of these tasks across a range of projects. The buildNeeded and buildDependents tasks can help with this.
+
+In this example, the “:services:personservice” project depends on both the “:api” and “:shared” projects. The “:api” project also depends on the “:shared” project.
+
+Assume you are working on a single project, the “:api” project. You have been making changes, but have not built the entire project since performing a clean. You want to build any necessary supporting jars, but only perform code quality and unit tests on the project you have changed. The build task does this.
+
+Example 18. Build and Test Single Project
+Output of gradle :api:build
+&gt; gradle :api:build
+&gt; Task :shared:compileJava
+&gt; Task :shared:processResources
+&gt; Task :shared:classes
+&gt; Task :shared:jar
+&gt; Task :api:compileJava
+&gt; Task :api:processResources
+&gt; Task :api:classes
+&gt; Task :api:jar
+&gt; Task :api:assemble
+&gt; Task :api:compileTestJava
+&gt; Task :api:processTestResources
+&gt; Task :api:testClasses
+&gt; Task :api:test
+&gt; Task :api:check
+&gt; Task :api:build
+
+BUILD SUCCESSFUL in 0s
+9 actionable tasks: 9 executed
+If you have just gotten the latest version of source from your version control system which included changes in other projects that “:api” depends on, you might want to not only build all the projects you depend on, but test them as well. The buildNeeded task also tests all the projects from the project lib dependencies of the testRuntime configuration.
+
+Example 19. Build and Test Depended On Projects
+Output of gradle :api:buildNeeded
+&gt; gradle :api:buildNeeded
+&gt; Task :shared:compileJava
+&gt; Task :shared:processResources
+&gt; Task :shared:classes
+&gt; Task :shared:jar
+&gt; Task :api:compileJava
+&gt; Task :api:processResources
+&gt; Task :api:classes
+&gt; Task :api:jar
+&gt; Task :api:assemble
+&gt; Task :api:compileTestJava
+&gt; Task :api:processTestResources
+&gt; Task :api:testClasses
+&gt; Task :api:test
+&gt; Task :api:check
+&gt; Task :api:build
+&gt; Task :shared:assemble
+&gt; Task :shared:compileTestJava
+&gt; Task :shared:processTestResources
+&gt; Task :shared:testClasses
+&gt; Task :shared:test
+&gt; Task :shared:check
+&gt; Task :shared:build
+&gt; Task :shared:buildNeeded
+&gt; Task :api:buildNeeded
+
+BUILD SUCCESSFUL in 0s
+12 actionable tasks: 12 executed
+You also might want to refactor some part of the “:api” project that is used in other projects. If you make these types of changes, it is not sufficient to test just the “:api” project, you also need to test all projects that depend on the “:api” project. The buildDependents task also tests all the projects that have a project lib dependency (in the testRuntime configuration) on the specified project.
+
+Example 20. Build and Test Dependent Projects
+Output of gradle :api:buildDependents
+&gt; gradle :api:buildDependents
+&gt; Task :shared:compileJava
+&gt; Task :shared:processResources
+&gt; Task :shared:classes
+&gt; Task :shared:jar
+&gt; Task :api:compileJava
+&gt; Task :api:processResources
+&gt; Task :api:classes
+&gt; Task :api:jar
+&gt; Task :api:assemble
+&gt; Task :api:compileTestJava
+&gt; Task :api:processTestResources
+&gt; Task :api:testClasses
+&gt; Task :api:test
+&gt; Task :api:check
+&gt; Task :api:build
+&gt; Task :services:personService:compileJava
+&gt; Task :services:personService:processResources
+&gt; Task :services:personService:classes
+&gt; Task :services:personService:jar
+&gt; Task :services:personService:assemble
+&gt; Task :services:personService:compileTestJava
+&gt; Task :services:personService:processTestResources
+&gt; Task :services:personService:testClasses
+&gt; Task :services:personService:test
+&gt; Task :services:personService:check
+&gt; Task :services:personService:build
+&gt; Task :services:personService:buildDependents
+&gt; Task :api:buildDependents
+
+BUILD SUCCESSFUL in 0s
+17 actionable tasks: 17 executed
+Finally, you may want to build and test everything in all projects. Any task you run in the root project folder will cause that same named task to be run on all the children. So you can just run “gradle build” to build and test all projects.
+
+Multi Project and buildSrc
+Using buildSrc to organize build logic tells us that we can place build logic to be compiled and tested in the special buildSrc directory. In a multi project build, there can only be one buildSrc directory which must be located in the root directory.
+
+1. The real use case we had, was using http://lucene.apache.org/solr, where you need a separate war for each index you are accessing. That was one reason why we have created a distribution of webapps. The Resin servlet container allows us, to let such a distribution point to a base installation of the servlet container.
+2. We do this here, as it makes the layout a bit easier. We usually put the project specific stuff into the build script of the respective projects.</pre>

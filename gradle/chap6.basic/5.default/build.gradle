@@ -1,0 +1,20 @@
+//defaultタスクを定義。antのデフォルトタスクと同じ。
+defaultTasks "clean","run"
+
+task clean{
+  doLast {
+    println "clean"
+  }
+}
+
+task run{
+  doLast {
+    println "running"
+  }
+}
+
+task other{
+  doLast {
+    println "other"
+  }
+}

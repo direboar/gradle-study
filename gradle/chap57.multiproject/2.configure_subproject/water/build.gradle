@@ -1,0 +1,37 @@
+//すべてのプロジェクトに対して適用するというDSL
+allprojects { 
+ task hello() { 
+   //親プロジェクトとサブプロジェクトごとに、繰返し以下のタスクが呼ばれる、
+   doLast { task -> //Task型が渡される。https://docs.gradle.org/current/dsl/org.gradle.api.Task.html#N18F33
+     println task.getClass().getName()
+     println task.name
+     //Task.projectでこのコンテキストのプロジェクトを参照できる。
+     println task.project.name
+     println "This is Project : $task.project.name" //文字列中で引数参照する場合は$をつける。
+   }
+ }
+}
+
+subprojects {
+ task goodby() { 
+   //サブプロジェクトごとに、繰返し以下のタスクが呼ばれる、
+   doLast { task -> //Task型が渡される。https://docs.gradle.org/current/dsl/org.gradle.api.Task.html#N18F33
+     println "Goodby SubProject : $task.project.name" 
+   }
+ }
+ 
+ //既に定義済みのタスクhelloに追加する場合は、task宣言しない。
+ hello { 
+   //サブプロジェクトごとに、繰返し以下のタスクが呼ばれる、
+   doLast { task -> //Task型が渡される。https://docs.gradle.org/current/dsl/org.gradle.api.Task.html#N18F33
+     println "This is SubProject : $task.project.name"
+   }
+ }
+}
+
+//特定のプロジェクトに対して、helloタスクを宣言する。
+project(':bluewhale').hello {
+  doLast { task->
+    println "This is Bluewhale SubProject : $task.project.name"
+  }
+}

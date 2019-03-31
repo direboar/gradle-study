@@ -1,0 +1,5 @@
+//ルートプロジェクト名を指定。
+rootProject.name = 'water'
+
+//サブプロジェクト名をリストで指定。
+include 'bluewhale','krill'

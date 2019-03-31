@@ -1,0 +1,32 @@
+task printProps {
+  group = "tutorial"
+  description = "sample for properties"
+  //gradle.propertiesの設定値が表示される。
+  //-Pオプション（プロジェクトプロパティ）、-Dオプション（システムプロパティ）で指定すると、指定値でオーバーライドされる。
+  println prop1
+  println System.properties["system"]
+  
+}
+
+// Example.
+//  C:\Users\P9970807\Desktop\gradle\chap14.tutorials\1.properties>gradle printProps
+//> Configure project :
+//1
+//systemValue
+//
+//BUILD SUCCESSFUL in 1s
+//<-------------> 0% WAITING
+//> IDLE
+//C:\Users\P9970807\Desktop\gradle\chap14.tutorials\1.properties>gradle -Dsystem=A printProps
+//
+//> Configure project :
+//1
+//A
+//
+//BUILD SUCCESSFUL in 1s
+//C:\Users\P9970807\Desktop\gradle\chap14.tutorials\1.properties>gradle -Pprop1=A printProps
+//
+//> Configure project :
+//A
+//systemValue
+//

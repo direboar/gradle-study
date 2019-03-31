@@ -1,0 +1,5 @@
+//この例はうまく動作しません。依存関係が定義されていないと、Gradleはタスクをアルファベット順に実行します。 
+//したがって、:consumer(消費者):actionが:producer(供給者):actionより先に実行されてしまうのです。 
+
+ext.producerMessage = null
+

@@ -1,0 +1,15 @@
+task hello {
+  description = "this is hello task." //gradle tasksを実行したときに表示される
+  group = "Customized"    //グループに入れないと、gradle tasksを実行したときに表示されない。
+  doLast {
+    println "Hello,world"
+  }
+}
+
+//task introはhelloに依存しているので、introを実行すると直前にhelloが実行される
+task intro(dependsOn : hello) {
+  doLast {
+    println "I'm Gradle"
+  }
+}
+

@@ -1,0 +1,384 @@
+https://docs.spring.io/spring-boot/docs/2.1.3.RELEASE/gradle-plugin/reference/html/#integrating-with-actuator-build-info
+
+はじめに
+Spring Boot GradleプラグインはGradleでSpring Bootをサポートし、実行可能なjarまたはwarアーカイブのパッケージ化、Spring Bootアプリケーションの実行、spring-boot-dependenciesによって提供される依存関係管理の使用を可能にします。 Spring BootのGradleプラグインにはGradle 4.4以降が必要です。新しいKotlin DSLを使用する場合は、Gradle 4.10以降が必要です。
+
+このユーザーガイドに加えて、APIドキュメントも利用できます。
+
+2.はじめに
+プラグインを使い始めるには、プロジェクトに適用する必要があります。
+
+プラグインはGradleのプラグインポータルに公開され、pluginsブロックを使って適用することができます。
+
+GroovyKotlin
+プラグイン{
+id 'org.springframework.boot'バージョン '2.1.3.RELEASE'
+}
+プラグインを単独で適用すると、プロジェクトにほとんど変更が加えられません。代わりに、プラグインは他の特定のプラグインがいつ適用されたかを検出し、それに応じて反応します。たとえば、Javaプラグインが適用されると、実行可能jarを構築するためのタスクが自動的に構成されます。
+
+一般的なSpring Bootプロジェクトは、groovy、java、またはorg.jetbrains.kotlin.jvmプラグインとio.spring.dependency-managementプラグインを最低限適用します。例えば：
+
+GroovyKotlin
+プラグインを適用する： 'java'
+プラグインを適用する： 'io.spring.dependency-management'
+他のプラグインが適用されたときのSpring Bootプラグインの動作の詳細については、他のプラグインへの反応に関するセクションを参照してください。
+
+3.依存関係を管理する
+io.spring.dependency-managementプラグインを適用すると、Spring Bootのプラグインは使用しているSpring Bootのバージョンからspring-boot-dependenciesボムを自動的にインポートします。これにより、Mavenユーザーが楽しんでいるのと同様の依存関係管理エクスペリエンスが提供されます。たとえば、BOMで管理されている依存関係を宣言するときにバージョン番号を省略することができます。この機能を利用するには、通常の方法で依存関係を宣言しますが、バージョン番号は省略します。
+
+GroovyKotlin
+依存関係{
+実装 'org.springframework.boot：spring-boot-starter-web'
+実装 'org.springframework.boot：spring-boot-starter-data-jpa'
+}
+3.1。管理対象バージョンのカスタマイズ
+依存関係管理プラグインが適用されると自動的にインポートされるspring-boot-dependenciesボムは、プロパティを使用して、それが管理する依存関係のバージョンを制御します。これらのプロパティの完全なリストについてはbomを参照してください。
+
+管理対象バージョンをカスタマイズするには、対応するプロパティを設定します。例えば、slf4j.versionプロパティーによって制御されるSLF4Jのバージョンをカスタマイズするには、以下のようにします。
+
+GroovyKotlin
+ext ['slf4j.version'] = '1.7.20'
+Spring Bootの各リリースは、特定のサードパーティの依存関係に対して設計およびテストされています。バージョンを上書きすると互換性の問題が発生する可能性があるため、慎重に行う必要があります。
+3.2。 Spring Bootの依存関係管理を単独で使用する
+Spring Bootのプラグインをプロジェクトに適用しなくても、Spring Bootの依存関係管理をプロジェクトで使用できます。 SpringBootPluginクラスは、グループID、アーティファクトID、またはバージョンを知らなくてもBOMをインポートするために使用できるBOM_COORDINATES定数を提供します。
+
+まず、Spring Bootプラグインに依存するようにプロジェクトを設定しますが、適用はしません。
+
+GroovyKotlin
+プラグイン{
+id 'org.springframework.boot'バージョン '2.1.3.RELEASE'はfalseを適用
+}
+Spring Bootプラグインの依存関係管理プラグインへの依存関係は、依存関係を宣言することなく依存関係管理プラグインを使用できることを意味します。これはまた、Spring Bootが使用するのと同じバージョンの依存関係管理プラグインを自動的に使用することを意味します。
+
+依存関係管理プラグインを適用してから、Spring Bootのbomをインポートするように設定します。
+
+GroovyKotlin
+プラグインを適用する： 'io.spring.dependency-management'
+
+dependencyManagement {
+輸入品{
+mavenBom org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES
+}
+}
+上記のKotlinコードは少しぎこちないです。これは、依存関係管理プラグインを適用するための必須の方法を使用しているためです。
+
+ルートの親プロジェクトからプラグインを適用するか、またはSpring Bootプラグインの場合と同じようにpluginsブロックを使用することで、コードをわかりにくくすることができます。この方法の欠点は、依存関係管理プラグインのバージョンを指定する必要があることです。
+
+プラグイン{
+ジャワ
+id（ "org.springframework.boot"）バージョン "2.1.3.RELEASE"はfalseを適用
+id（ "io.spring.dependency-management"）バージョン "1.0.6.RELEASE"
+}
+
+dependencyManagement {
+輸入品{
+mavenBom（org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES）
+}
+}
+3.3。もっと学ぶ
+依存関係管理プラグインの機能の詳細については、そのドキュメントを参照してください。
+
+4.実行可能アーカイブをパッケージ化する
+プラグインは、アプリケーションのすべての依存関係を含む実行可能アーカイブ（jarファイルとwarファイル）を作成し、その後java -jarで実行することができます。
+
+4.1。実行可能ファイルのパッケージ化
+実行可能なjarファイルはbootJarタスクを使って構築することができます。このタスクは、Javaプラグインが適用されたときに自動的に作成され、BootJarのインスタンスです。アセンブルタスクはbootJarタスクに依存するように自動的に設定されるので、assemble（またはbuild）を実行するとbootJarタスクも実行されます。
+
+4.2。実行可能ファイルのパッケージ化
+実行可能な戦争はbootWarタスクを使って構築することができます。タスクはwarプラグインが適用されたときに自動的に作成され、BootWarのインスタンスです。アセンブルタスクはbootWarタスクに依存するように自動的に設定されるので、assemble（またはbuild）を実行するとbootWarタスクも実行されます。
+
+４．２．１。実行可能およびデプロイ可能な戦争のパッケージ化
+warファイルは、java -jarを使用して実行し、外部コンテナにデプロイできるようにパッケージ化できます。そのためには、次のように、埋め込みサーブレットコンテナの依存関係をprovidedRuntime設定に追加する必要があります。
+
+GroovyKotlin
+依存関係{
+実装 'org.springframework.boot：spring-boot-starter-web'
+providedRuntime 'org.springframework.boot：spring-boot-starter-tomcat'
+}
+これにより、それらはwarファイルのWEB-INF / lib提供ディレクトリにパッケージ化され、そこから外部コンテナ自身のクラスと衝突することがなくなります。
+
+その他の制限の中でも、compileOnly依存関係はテストクラスパスにはないため、Webベースの統合テストはすべて失敗するため、provideRuntimeはGradleのcompileOnly設定よりも優先されます。
+4.3。実行可能ファイルと通常のアーカイブのパッケージ化
+デフォルトでは、bootJarまたはbootWarタスクが構成されると、jarまたはwarタスクは無効になります。 jarタスクまたはwarタスクを有効にすることで、実行可能アーカイブと通常のアーカイブの両方を同時にビルドするようにプロジェクトを構成できます。
+
+GroovyKotlin
+ジャー{
+enabled = true
+}
+実行可能アーカイブと通常のアーカイブが同じ場所に書き込まれないようにするには、どちらか一方を別の場所を使用するように構成する必要があります。そのための1つの方法は、分類子を設定することです。
+
+GroovyKotlin
+bootJar {
+分類子= 'ブート'
+}
+4.4。実行可能アーカイブパッケージの設定
+BootJarタスクとBootWarタスクは、それぞれGradleのJarタスクとWarタスクのサブクラスです。結果として、jarまたはwarをパッケージ化するときに利用可能なすべての標準構成オプションは、実行可能jarまたはwarをパッケージ化するときにも利用可能になります。実行可能なjarファイルおよびwarsに固有の多数の設定オプションも提供されています。
+
+４．４．１。メインクラスの設定
+デフォルトでは、実行可能アーカイブのメインクラスは、タスクのクラスパス上のディレクトリでpublic static void main（String []）メソッドを持つクラスを探すことによって自動的に設定されます。
+
+メインクラスは、タスクのmainClassNameプロパティを使って明示的に設定することもできます。
+
+GroovyKotlin
+bootJar {
+mainClassName = 'com.example.ExampleApplication'
+}
+あるいは、Spring Boot DSLのmainClassNameプロパティを使用して、メインクラス名をプロジェクト全体で設定できます。
+
+GroovyKotlin
+springBoot {
+mainClassName = 'com.example.ExampleApplication'
+}
+アプリケーションプラグインが適用されている場合は、そのmainClassNameプロジェクトプロパティを設定する必要があり、同じ目的に使用できます。
+
+GroovyKotlin
+mainClassName = 'com.example.ExampleApplication'
+最後に、Start-Class属性はタスクのマニフェストで設定できます。
+
+GroovyKotlin
+bootJar {
+マニフェスト{
+属性 'Start-Class'： 'com.example.ExampleApplication'
+}
+}
+４．４．２。 Devtoolsを除く
+デフォルトでは、Spring BootのDevtoolsモジュール、org.springframework.boot：spring-boot-devtoolsは実行可能なjarファイルまたはwarから除外されます。アーカイブにDevtoolsを含める場合は、excludeDevtoolsプロパティをfalseに設定します。
+
+GroovyKotlin
+bootWar {
+excludeDevtools = false
+}
+４．４．３。開梱が必要なライブラリの設定
+実行可能アーカイブにネストされている場合、ほとんどのライブラリは直接使用できますが、ライブラリによっては問題が発生する可能性があります。たとえば、JRubyには、jruby-complete.jarが常にファイルシステム上で直接利用可能であることを前提とした独自のネストされたjarサポートが含まれています。
+
+問題のあるライブラリを処理するために、実行可能アーカイブを実行したときに、その実行可能アーカイブを特定のネストしたjarファイルを一時フォルダに展開するように設定できます。ライブラリは、ソースjarファイルの絶対パスと一致するAntスタイルのパターンを使用して解凍が必要であると識別できます。
+
+GroovyKotlin
+bootJar {
+requireUnpack '** / jruby-complete  -  *。jar'
+}
+より細かく制御するためにクロージャーを使用することもできます。クロージャはFileTreeElementを渡され、アンパックが必要かどうかを示すブール値を返すべきです。
+
+４．４．４。アーカイブを完全に実行可能にする
+Spring Bootは完全に実行可能なアーカイブのサポートを提供します。アプリケーションの起動方法を知っているシェルスクリプトを前に付けることで、アーカイブは完全に実行可能になります。 Unixのようなプラットフォームでは、この起動スクリプトは他の実行ファイルと同じようにアーカイブを直接実行したり、サービスとしてインストールすることを可能にします。
+
+この機能を使用するには、起動スクリプトを含める必要があります。
+
+GroovyKotlin
+bootJar {
+launchScript（）
+}
+これにより、Spring Bootのデフォルトの起動スクリプトがアーカイブに追加されます。デフォルトの起動スクリプトには、実用的なデフォルト値を持ついくつかのプロパティが含まれています。プロパティプロパティを使用して値をカスタマイズできます。
+
+GroovyKotlin
+bootJar {
+launchScript {
+プロパティ 'logFilename'： 'example-app.log'
+}
+}
+デフォルトの起動スクリプトがニーズを満たさない場合は、scriptプロパティを使用してカスタム起動スクリプトを指定できます。
+
+GroovyKotlin
+bootJar {
+launchScript {
+script = file（ 'src / custom.script'）
+}
+}
+４．４．５。 PropertiesLauncherを使用する
+PropertiesLauncherを使用して実行可能なjarファイルまたはwarを起動するには、タスクのマニフェストを設定してMain-Class属性を設定します。
+
+GroovyKotlin
+bootWar {
+マニフェスト{
+属性「メインクラス」：「org.springframework.boot.loader.PropertiesLauncher」
+}
+}
+5.アプリケーションを公開する
+５．１。 Mavenプラグインを使って公開する
+Mavenプラグインが適用されると、uploadBootArchivesという名前のbootArchives構成用のUploadタスクが自動的に作成されます。デフォルトでは、bootArchives設定には、bootJarまたはbootWarタスクによって生成されたアーカイブが含まれています。 uploadBootArchivesタスクは、アーカイブをMavenリポジトリに公開するように設定できます。
+
+GroovyKotlin
+uploadBootArchives {
+リポジトリ{
+mavenDeployer {
+リポジトリのURL： 'https://repo.example.com'
+}
+}
+}
+5.2。 maven-publishプラグインを使って公開する
+Spring Bootのjarファイルまたはwarを公開するには、MavenPublicationのアーティファクトメソッドを使用してそれをパブリケーションに追加します。公開したいアーティファクトを生成するタスクをアーティファクトメソッドに渡します。例えば、デフォルトのbootJarタスクによって生成された成果物を公開するには、以下のようにします。
+
+GroovyKotlin
+公開中{
+出版物{
+bootJava（MavenPublication）{
+アーティファクトbootJar
+}
+}
+リポジトリ{
+メイヴン{
+URL 'https://repo.example.com'
+}
+}
+}
+5.3。アプリケーションプラグインで配布する
+アプリケーションプラグインが適用されると、bootという名前のディストリビューションが作成されます。このディストリビューションには、bootJarまたはbootWarタスクによって生成されたアーカイブと、UnixライクなプラットフォームおよびWindows上で起動するためのスクリプトが含まれています。 zipおよびtarの配布はそれぞれbootDistZipおよびbootDistTarタスクによって作成できます。アプリケーションプラグインを使用するには、そのmainClassNameプロジェクトプロパティをアプリケーションのメインクラスの名前で設定する必要があります。
+
+6. Gradleを使ってアプリケーションを実行する
+最初にアーカイブを構築せずにアプリケーションを実行するには、bootRunタスクを使用します。
+
+$ ./gradlew bootRun
+bootRunタスクは、JavaExecサブクラスであるBootRunのインスタンスです。そのため、GradleでJavaプロセスを実行するための通常の設定オプションはすべて利用できます。タスクは、メインソースセットの実行時クラスパスを使用するように自動的に設定されます。
+
+デフォルトでは、メインクラスはタスクのクラスパス上のディレクトリでpublic static void main（String []）メソッドを持つクラスを探すことで自動的に設定されます。
+
+メインクラスはタスクのmainプロパティを使って明示的に設定することもできます。
+
+GroovyKotlin
+bootRun {
+main = 'com.example.ExampleApplication'
+}
+あるいは、Spring Boot DSLのmainClassNameプロパティを使用して、メインクラス名をプロジェクト全体で設定できます。
+
+GroovyKotlin
+springBoot {
+mainClassName = 'com.example.ExampleApplication'
+}
+アプリケーションプラグインが適用されている場合は、そのmainClassNameプロジェクトプロパティを設定する必要があり、同じ目的に使用できます。
+
+GroovyKotlin
+mainClassName = 'com.example.ExampleApplication'
+６．１。アプリケーションに引数を渡す
+すべてのJavaExecタスクと同様に、Gradle 4.9以降を使用している場合、引数は--args = '<引数>'を使用してコマンドラインからbootRunに渡すことができます。たとえば、dev activeという名前のプロファイルでアプリケーションを実行するには、次のコマンドを使用できます。
+
+$ ./gradlew bootRun --args = ' -  spring.profiles.active = dev'
+詳細については、JavaExec.setArgsStringのjavadocを参照してください。
+
+6.2。リソースの再読み込み
+devtoolsがあなたのプロジェクトに追加されている場合、それは自動的にあなたのアプリケーションの変更を監視します。あるいは、アプリケーションの静的リソースがそのソースの場所からロードされるようにbootRunを設定することもできます。
+
+GroovyKotlin
+bootRun {
+sourceResources sourceSets.main
+}
+これにより、ライブアプリケーションにそれらを再ロード可能にし、開発時に役立ちます。
+
+7.アクチュエータとの統合
+7.1。ビルド情報を生成する
+Spring Boot Actuatorの情報エンドポイントは、META-INF / build-info.propertiesファイルの存在下で、あなたのビルドに関する情報を自動的に公開します。このファイルを生成するためにBuildInfoタスクが提供されています。このタスクを使用する最も簡単な方法は、プラグインのDSLを使うことです。
+
+GroovyKotlin
+springBoot {
+buildInfo（）
+}
+これにより、bootBuildInfoというBuildInfoタスクが構成され、存在する場合は、Javaプラグインのclassesタスクがそれに依存するようになります。タスクの保存先ディレクトリは、メインソースセットのリソースの出力ディレクトリにあるMETA-INFになります（通常はbuild / resources / main）。
+
+デフォルトでは、生成されたビルド情報はプロジェクトから派生します。
+
+プロパティデフォルト値
+build.artifact
+
+bootJarまたはbootWarタスクのベース名、あるいはそのようなタスクが存在しない場合は未指定
+
+build.group
+
+プロジェクトのグループ
+
+build.name
+
+プロジェクトの名前
+
+build.version
+
+プロジェクトのバージョン
+
+build.time
+
+プロジェクトが構築されている時間
+
+プロパティはDSLを使用してカスタマイズできます。
+
+GroovyKotlin
+springBoot {
+buildInfo {
+プロパティ{
+artifact = 'example-app'
+バージョン= '1.2.3'
+group = 'com.example'
+name = 'サンプルアプリケーション'
+}
+}
+}
+build.timeのデフォルト値は、プロジェクトがビルドされている瞬間です。この副次作用は、タスクが決して最新にならないということです。その結果、プロジェクトのテストを含むより多くのタスクを実行する必要があるため、ビルドにかかる時間が長くなります。もう1つの副作用は、タスクの出力が常に変わるため、ビルドが本当に再現可能にならないことです。 build.timeプロパティの精度よりも高いビルドパフォーマンスまたは再現性を重視する場合は、timeをnullまたは固定値に設定してください。
+
+追加のプロパティをビルド情報に追加することもできます。
+
+GroovyKotlin
+springBoot {
+buildInfo {
+プロパティ{
+additional = [
+'a'： 'アルファ'、
+'b'： 'ブラボー'
+]
+}
+}
+}
+8.他のプラグインに反応する
+別のプラグインが適用されると、Spring Bootプラグインはプロジェクトの設定にさまざまな変更を加えることによって反応します。このセクションではそれらの変更について説明します。
+
+8.1。 Javaプラグインに反応する
+GradleのJavaプラグインがプロジェクトに適用されると、Spring Bootプラグインは
+
+プロジェクトの実行可能ファイル、太いjarファイルを作成するbootJarという名前のBootJarタスクを作成します。 jarには、メインソースセットの実行時クラスパス上のすべてのものが含まれます。クラスはBOOT-INF / classesにパッケージされ、jarはBOOT-INF / libにパッケージされています
+
+bootJarタスクに依存するようにアセンブルタスクを設定します。
+
+jarタスクを無効にします。
+
+アプリケーションを実行するために使用できるbootRunという名前のBootRunタスクを作成します。
+
+bootJarタスクによって生成された成果物を含むbootArchivesという名前の構成を作成します。
+
+エンコーディングが設定されていないJavaCompileタスクをUTF-8を使用するように設定します。
+
+-parametersコンパイラー引数を使用するようにJavaCompileタスクを構成します。
+
+8.2。 Kotlinプラグインに反応する
+KotlinのGradleプラグインがプロジェクトに適用されると、Spring Bootプラグインは
+
+Spring Bootの依存関係管理で使用されているKotlinのバージョンをプラグインのバージョンに合わせます。これは、kotlin.versionプロパティにKotlinプラグインのバージョンと一致する値を設定することによって実現されます。
+
+-java-parametersコンパイラー引数を使用するようにKotlinCompileタスクを構成します。
+
+8.3。 warプラグインに反応する
+Gradleのwarプラグインがプロジェクトに適用されると、Spring Bootプラグインは
+
+bootWarという名前のBootWarタスクを作成します。このタスクは、プロジェクトの実行可能ファイルを作成します。標準のパッケージに加えて、providedRuntime設定内のすべてのものはWEB-INF / lib-providedにパッケージされます。
+
+bootWarタスクに依存するようにアセンブルタスクを設定します。
+
+戦争タスクを無効にします。
+
+bootWarタスクによって生成された成果物を含むようにbootArchives構成を構成します。
+
+8.4。依存関係管理プラグインへの対応
+io.spring.dependency-managementプラグインがプロジェクトに適用されると、Spring Bootプラグインはspring-boot-dependenciesボムを自動的にインポートします。
+
+8.5。アプリケーションプラグインに反応する
+Gradleのアプリケーションプラグインがプロジェクトに適用されると、Spring Bootプラグインは次のことを行います。
+
+bootStartScriptsというCreateStartScriptsタスクを作成します。このタスクは、java -jarを使用してbootArchives設定内のアーティファクトを起動するスクリプトを作成します。タスクは、defaultJvmOptsプロパティーの規則としてapplicationDefaultJvmArgsプロパティーを使用するように構成されています。
+
+bootという名前の新しいディストリビューションを作成し、そのlibディレクトリにbootArchives設定のアーティファクトを、binディレクトリに起動スクリプトを含めるように設定します。
+
+mainClassNameプロパティをそのメインプロパティの規約として使用するようにbootRunタスクを構成します。
+
+そのjvmArgsプロパティの規約としてapplicationDefaultJvmArgsプロパティを使用するようにbootRunタスクを設定します。
+
+マニフェストのStart-Classエントリの規則としてmainClassNameプロパティを使用するようにbootJarタスクを構成します。
+
+マニフェストのStart-Classエントリの規則としてmainClassNameプロパティを使用するようにbootWarタスクを構成します。
+
+8.6。 Mavenプラグインに反応する
+GradleのMavenプラグインがプロジェクトに適用されると、Spring BootプラグインはuploadBootArchivesのUploadタスクを設定して、生成されるpomで依存関係が宣言されないようにします。
